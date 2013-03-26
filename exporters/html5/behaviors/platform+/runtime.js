@@ -7,20 +7,24 @@ Im implementing some of the functionality I need on a plataform object.
 Since I like better to code than using C2 to generate events Im modifiying this file
 so it behaves as I need.
 
+Changes in version 1.2
+-Added double jump functionality
+
 Changes in version 1.1
 -Added hold jump functionality
+-Aded jump control parameter for configuration in Construct
 
 Future changes
+- Possibility to define how many jumps you can do
 - Wall Jump
-- Double Jump
 - Dash
 - Crouch
 
 If you think you can help me pls do it and send me an email or post on the forum thread in Scirra´s site
 
 Extended by: Jorge Popoca, hazneliel@gmail.com
-version 1.1
-25.03.2013
+version 1.2
+26.03.2013
 */
 
 // ECMAScript 5 strict mode
@@ -31,19 +35,16 @@ assert2(cr.behaviors, "cr.behaviors not created");
 
 /////////////////////////////////////
 // Behavior class
-cr.behaviors.PlatformPlus = function(runtime)
-{
+cr.behaviors.PlatformPlus = function(runtime) {
 	this.runtime = runtime;
 };
 
-(function ()
-{
+(function () {
 	var behaviorProto = cr.behaviors.PlatformPlus.prototype;
 		
 	/////////////////////////////////////
 	// Behavior type class
-	behaviorProto.Type = function(behavior, objtype)
-	{
+	behaviorProto.Type = function(behavior, objtype) {
 		this.behavior = behavior;
 		this.objtype = objtype;
 		this.runtime = behavior.runtime;
@@ -51,8 +52,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 
 	var behtypeProto = behaviorProto.Type.prototype;
 
-	behtypeProto.onCreate = function()
-	{
+	behtypeProto.onCreate = function() {
 	};
 
 	/////////////////////////////////////
@@ -64,8 +64,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 	var ANIMMODE_JUMPING = 2;
 	var ANIMMODE_FALLING = 3;
 	
-	behaviorProto.Instance = function(type, inst)
-	{
+	behaviorProto.Instance = function(type, inst) {
 		this.type = type;
 		this.behavior = type.behavior;
 		this.inst = inst;				// associated object instance to modify
@@ -78,6 +77,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 		this.jumped = false;			// prevent bunnyhopping
 		this.ignoreInput = false;
 		this.isJumping = false;			// Helper for Jump control
+		this.doubleJumped = false;
 		
 		// Simulated controls
 		this.simleft = false;
@@ -102,8 +102,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 
 	var behinstProto = behaviorProto.Instance.prototype;
 	
-	behinstProto.updateGravity = function()
-	{
+	behinstProto.updateGravity = function() {
 		// down vector
 		this.downx = Math.cos(this.ga);
 		this.downy = Math.sin(this.ga);
@@ -122,16 +121,14 @@ cr.behaviors.PlatformPlus = function(runtime)
 		
 		// gravity is negative (up): flip the down vector and make gravity positive
 		// (i.e. change the angle of gravity instead)
-		if (this.g < 0)
-		{
+		if (this.g < 0) {
 			this.downx *= -1;
 			this.downy *= -1;
 			this.g = Math.abs(this.g);
 		}
 	};
 
-	behinstProto.onCreate = function()
-	{
+	behinstProto.onCreate = function() {
 		// Load properties
 		this.maxspeed = this.properties[0];
 		this.acc = this.properties[1];
@@ -142,6 +139,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 		this.maxFall = this.properties[5];
 		this.defaultControls = (this.properties[6] === 1);	// 0=no, 1=yes
 		this.jumpControl = (this.properties[7] === 1);	// 0=no, 1=yes
+		this.enableDoubleJump = (this.properties[8] === 1);	// 0=no, 1=yes
 		this.wasOnFloor = false;
 		this.wasOverJumpthru = this.runtime.testOverlapJumpThru(this.inst);
 
@@ -150,8 +148,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 		this.updateGravity();
 		
 		// Only bind keyboard events via jQuery if default controls are in use
-		if (this.defaultControls && !this.runtime.isDomFree)
-		{
+		if (this.defaultControls && !this.runtime.isDomFree) {
 			jQuery(document).keydown(
 				(function (self) {
 					return function(info) {
@@ -179,21 +176,18 @@ cr.behaviors.PlatformPlus = function(runtime)
 		this.runtime.addDestroyCallback(this.myDestroyCallback);
 	};
 	
-	behinstProto.onInstanceDestroyed = function (inst)
-	{
+	behinstProto.onInstanceDestroyed = function (inst) {
 		// Floor object being destroyed
 		if (this.lastFloorObject == inst)
 			this.lastFloorObject = null;
 	};
 	
-	behinstProto.onDestroy = function ()
-	{
+	behinstProto.onDestroy = function () {
 		this.lastFloorObject = null;
 		this.runtime.removeDestroyCallback(this.myDestroyCallback);
 	};
 
-	behinstProto.onKeyDown = function (info)
-	{	
+	behinstProto.onKeyDown = function (info) {	
 		switch (info.which) {
 		case 38:	// up
 			info.preventDefault();
@@ -217,6 +211,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 			info.preventDefault();
 			this.jumpkey = false;
 			this.jumped = false;
+			
 			break;
 		case 37:	// left
 			info.preventDefault();
@@ -229,16 +224,14 @@ cr.behaviors.PlatformPlus = function(runtime)
 		}
 	};
 	
-	behinstProto.getGDir = function ()
-	{
+	behinstProto.getGDir = function () {
 		if (this.g < 0)
 			return -1;
 		else
 			return 1;
 	};
 
-	behinstProto.isOnFloor = function ()
-	{
+	behinstProto.isOnFloor = function () {
 		var ret = null;
 		var ret2 = null;
 		var i, len, j;
@@ -251,16 +244,13 @@ cr.behaviors.PlatformPlus = function(runtime)
 		this.inst.set_bbox_changed();
 		
 		// See if still overlapping last floor object (if any)
-		if (this.lastFloorObject && this.runtime.testOverlap(this.inst, this.lastFloorObject))
-		{
+		if (this.lastFloorObject && this.runtime.testOverlap(this.inst, this.lastFloorObject)) {
 			// Put the object back
 			this.inst.x = oldx;
 			this.inst.y = oldy;
 			this.inst.set_bbox_changed();
 			return this.lastFloorObject;
-		}
-		else
-		{
+		} else {
 			ret = this.runtime.testOverlapSolid(this.inst);
 			
 			if (!ret && this.fallthrough === 0)
@@ -282,11 +272,9 @@ cr.behaviors.PlatformPlus = function(runtime)
 			}
 			
 			// Is overlapping one or more jumpthrus
-			if (ret2 && ret2.length)
-			{
+			if (ret2 && ret2.length) {
 				// Filter out jumpthrus it is still overlapping one pixel up
-				for (i = 0, j = 0, len = ret2.length; i < len; i++)
-				{
+				for (i = 0, j = 0, len = ret2.length; i < len; i++) {
 					ret2[j] = ret2[i];
 					
 					if (!this.runtime.testOverlap(this.inst, ret2[i]))
@@ -309,12 +297,14 @@ cr.behaviors.PlatformPlus = function(runtime)
 		
 		// The "jumped" flag needs resetting whenever the jump key is not simulated for custom controls
 		// This musn't conflict with default controls so make sure neither the jump key nor simulate jump is on
-		if (!this.jumpkey && !this.simjump)
+		if (!this.jumpkey && !this.simjump) {
 			this.jumped = false;
+		}
 			
 		var left = this.leftkey || this.simleft;
 		var right = this.rightkey || this.simright;
 		var jump = (this.jumpkey || this.simjump) && !this.jumped;
+	
 		this.simleft = false;
 		this.simright = false;
 		this.simjump = false;
@@ -323,8 +313,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 			return;
 		
 		// Ignoring input: ignore all keys
-		if (this.ignoreInput)
-		{
+		if (this.ignoreInput) {
 			left = false;
 			right = false;
 			jump = false;
@@ -335,10 +324,8 @@ cr.behaviors.PlatformPlus = function(runtime)
 		
 		// On first tick, push up out the floor with sub-pixel precision.  This resolves 1px float issues
 		// with objects placed starting exactly on the floor.
-		if (this.firstTick)
-		{
-			if (this.runtime.testOverlapSolid(this.inst) || this.runtime.testOverlapJumpThru(this.inst))
-			{
+		if (this.firstTick) {
+			if (this.runtime.testOverlapSolid(this.inst) || this.runtime.testOverlapJumpThru(this.inst)) {
 				this.runtime.pushOutSolid(this.inst, -this.downx, -this.downy, 4, true);
 			}
 			
@@ -346,8 +333,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 		}
 		
 		// Track moving platforms
-		if (lastFloor && this.dy === 0 && (lastFloor.y !== this.lastFloorY || lastFloor.x !== this.lastFloorX))
-		{
+		if (lastFloor && this.dy === 0 && (lastFloor.y !== this.lastFloorY || lastFloor.x !== this.lastFloorX)) {
 			mx = (lastFloor.x - this.lastFloorX);
 			my = (lastFloor.y - this.lastFloorY);
 			this.inst.x += mx;
@@ -358,8 +344,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 			floor_moved = true;
 			
 			// Platform moved player in to a solid: push out of the solid again
-			if (this.runtime.testOverlapSolid(this.inst))
-			{
+			if (this.runtime.testOverlapSolid(this.inst)) {
 				this.runtime.pushOutSolid(this.inst, -mx, -my, Math.sqrt(mx * mx + my * my) * 2.5);
 			}
 		}
@@ -369,8 +354,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 		
 		// Push out nearest here to prevent moving objects crushing/trapping the player
 		var collobj = this.runtime.testOverlapSolid(this.inst);
-		if (collobj)
-		{
+		if (collobj) {
 			if (this.runtime.pushOutSolidNearest(this.inst, Math.max(this.inst.width, this.inst.height) / 2))
 				this.runtime.registerCollision(this.inst, collobj);
 			// If can't push out, must be stuck, give up
@@ -379,7 +363,10 @@ cr.behaviors.PlatformPlus = function(runtime)
 		}
 		
 		if (floor_) {
+			/* reset jumping vars, it landed */
 			this.isJumping = false;
+			this.doubleJumped = false;
+			
 			if (this.dy > 0) {
 				// By chance we may have fallen perfectly to 1 pixel above the floor, which might make
 				// isOnFloor return true before we've had a pushOutSolid from the floor to make us sit
@@ -394,24 +381,20 @@ cr.behaviors.PlatformPlus = function(runtime)
 			}
 
 			// First landing on the floor or floor changed
-			if (lastFloor != floor_)
-			{
+			if (lastFloor != floor_) {
 				this.lastFloorObject = floor_;
 				this.lastFloorX = floor_.x;
 				this.lastFloorY = floor_.y;
 				this.runtime.registerCollision(this.inst, floor_);
 			}
 			// If the floor has moved, check for moving in to a solid
-			else if (floor_moved)
-			{
+			else if (floor_moved) {
 				collobj = this.runtime.testOverlapSolid(this.inst);
-				if (collobj)
-				{
+				if (collobj) {
 					this.runtime.registerCollision(this.inst, collobj);
 					
 					// Push out horizontally then up
-					if (mx !== 0)
-					{
+					if (mx !== 0) {
 						if (mx > 0)
 							this.runtime.pushOutSolid(this.inst, -this.rightx, -this.righty);
 						else
@@ -423,7 +406,7 @@ cr.behaviors.PlatformPlus = function(runtime)
 			}
 			
 			/* JUMP -------------------------------------------------------------- */
-			if (jump) {				
+			if (jump) {		
 				// Check we can move up 1px else assume jump is blocked.
 				oldx = this.inst.x;
 				oldy = this.inst.y;
@@ -449,7 +432,6 @@ cr.behaviors.PlatformPlus = function(runtime)
 				} else {
 					jump = false;
 				}
-					
 				this.inst.x = oldx;
 				this.inst.y = oldy;
 				this.inst.set_bbox_changed();
@@ -468,6 +450,40 @@ cr.behaviors.PlatformPlus = function(runtime)
 			// Still set the jumped flag to prevent double tap bunnyhop
 			if (jump)
 				this.jumped = true;
+				
+			/* Double JUMP -------------------------------------------------------------- */
+			if (jump && this.enableDoubleJump && !this.doubleJumped) {	
+				
+				// Check we can move up 1px else assume jump is blocked.
+				oldx = this.inst.x;
+				oldy = this.inst.y;
+				this.inst.x -= this.downx;
+				this.inst.y -= this.downy;
+				this.inst.set_bbox_changed();
+		
+				if (!this.runtime.testOverlapSolid(this.inst)) {
+					this.dy = -this.jumpStrength;
+					
+					// Trigger On Jump
+					this.runtime.trigger(cr.behaviors.PlatformPlus.prototype.cnds.OnJump, this.inst);
+					this.animMode = ANIMMODE_JUMPING;
+					
+					// Prevent bunnyhopping: dont allow another jump until key up
+					this.doubleJumped = true;
+					
+					// Check if jump control is enabled
+					if (this.jumpControl == 1) {
+						this.isJumping = true;
+					}
+					
+				} else {
+					jump = false;
+				}
+					
+				this.inst.x = oldx;
+				this.inst.y = oldy;
+				this.inst.set_bbox_changed();	
+			}
 		}
 		
 		this.wasOnFloor = !!floor_;
@@ -1047,6 +1063,11 @@ cr.behaviors.PlatformPlus = function(runtime)
 	Acts.prototype.SetEnabled = function (en)
 	{
 		this.enabled = (en === 1);
+	};
+	
+	Acts.prototype.SetDoubleJump = function (en)
+	{
+		this.enableDoubleJump = (en === 1);
 	};
 	
 	Acts.prototype.FallThrough = function ()

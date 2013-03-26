@@ -3,7 +3,7 @@
 	return {
 		"name":			"PlatformPlus",
 		"id":			"PlatformPlus",
-		"version":		"1.1",
+		"version":		"1.2",
 		"description":	"Enhanced version of Scirra´s Platform behavior.",
 		"author":		"Jorge Popoca",
 		"help url":		"http://www.scirra.com/manual/100/platform",
@@ -84,6 +84,11 @@ AddAction(11, 0, "Set enabled", "", "Set {my} <b>{0}</b>", "Set whether this beh
 
 AddAction(12, 0, "Fall through", "", "Fall {my} down through jump-thru", "Fall through a jump-thru platform.", "FallThrough");
 
+AddComboParamOption("Disabled");
+AddComboParamOption("Enabled");
+AddComboParam("set Double jump", "Set whether to enable or disable double jump");
+AddAction(13, 0, "Set double jump", "", "Set {my} <b>{0}</b>", "Set whether double jump is enabled.", "SetDoubleJump");
+
 //////////////////////////////////////////////////////////////
 // Expressions
 AddExpression(0, ef_return_number, "Get speed", "", "Speed", "The current object speed, in pixels per second.");
@@ -108,7 +113,8 @@ var property_list = [
 	new cr.Property(ept_float, "Gravity", 1500, "Acceleration from gravity, in pixels per second per second."),
 	new cr.Property(ept_float, "Max fall speed", 1000, "Maximum speed object can reach in freefall, in pixels per second."),
 	new cr.Property(ept_combo, "Default controls", "Yes", "If enabled, arrow keys control movement.  Otherwise, use the 'simulate control' action.", "No|Yes"),
-	new cr.Property(ept_combo, "Jump control", "Yes", "Enable holding jump button to control the jump height", "No|Yes")
+	new cr.Property(ept_combo, "Jump control", "Yes", "Enable holding jump button to control the jump height", "No|Yes"),
+	new cr.Property(ept_combo, "Double jump", "Yes", "Enable double jump or jump in mid air", "No|Yes")
 	];
 	
 // Called by IDE when a new behavior type is to be created
