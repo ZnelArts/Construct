@@ -87,7 +87,7 @@ AddAction(12, 0, "Fall through", "", "Fall {my} down through jump-thru", "Fall t
 AddComboParamOption("Disabled");
 AddComboParamOption("Enabled");
 AddComboParam("set Double jump", "Set whether to enable or disable double jump");
-AddAction(13, 0, "Set double jump", "", "Set {my} <b>{0}</b>", "Set whether double jump is enabled.", "SetDoubleJump");
+AddAction(13, 0, "Set double jump", "", "Set {my} Double Jump <b>{0}</b>", "Set whether double jump is enabled.", "SetDoubleJump");
 
 //////////////////////////////////////////////////////////////
 // Expressions
