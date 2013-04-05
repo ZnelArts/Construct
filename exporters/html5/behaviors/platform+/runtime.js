@@ -666,7 +666,7 @@ cr.behaviors.PlatformPlus = function(runtime) {
 							//console.log("ok =)");
 							//this.ignoreInput = true;
 							this.dy = -this.jumpStrength;
-							this.potencialAcc = 100;
+							this.potencialAcc = 200;
 							this.lastTickCount = this.inst.runtime.tickcount;
 							//console.log(this.dx);
 							
