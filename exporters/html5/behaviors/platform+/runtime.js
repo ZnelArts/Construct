@@ -7,6 +7,10 @@ Im implementing some of the functionality I need on a plataform object.
 Since I like better to code than using C2 to generate events Im modifiying this file
 so it behaves as I need.
 
+Changes in version 1.3
+-Added wall jump functionality
+-Added wall jump parameter for configuration in Construct
+
 Changes in version 1.2
 -Added double jump functionality
 
@@ -16,15 +20,18 @@ Changes in version 1.1
 
 Future changes
 - Possibility to define how many jumps you can do
-- Wall Jump
 - Dash
 - Crouch
+
+To do
+- Add events for the player when its currently stick to the wall
+- Add events to enable wall jump
 
 If you think you can help me pls do it and send me an email or post on the forum thread in Scirra´s site
 
 Extended by: Jorge Popoca, hazneliel@gmail.com
-version 1.2
-26.03.2013
+version 1.3
+05.04.2013
 */
 
 // ECMAScript 5 strict mode
@@ -98,6 +105,21 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		// Movement
 		this.dx = 0;
 		this.dy = 0;
+		
+		this.lKey = 37;
+		this.rKey = 39;
+		
+		/* Potential acceleration when wall jumping, helps to impulse the player on x when it 
+		 * wall jumps
+		 */
+		this.potencialAcc = 0;
+		
+		/* Helper to reset some events after certain ammount of ticks
+		 * Currently is used by Wall jump, when we reset the potentialAcc to
+		 * 0 after some ticks
+		 */
+		this.lastTickCount = 0;
+		this.isStickWall = false;
 	};
 
 	var behinstProto = behaviorProto.Instance.prototype;
@@ -140,6 +162,7 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		this.defaultControls = (this.properties[6] === 1);	// 0=no, 1=yes
 		this.jumpControl = (this.properties[7] === 1);	// 0=no, 1=yes
 		this.enableDoubleJump = (this.properties[8] === 1);	// 0=no, 1=yes
+		this.enableWallJump = (this.properties[9] === 1);	// 0=no, 1=yes
 		this.wasOnFloor = false;
 		this.wasOverJumpthru = this.runtime.testOverlapJumpThru(this.inst);
 
@@ -193,11 +216,11 @@ cr.behaviors.PlatformPlus = function(runtime) {
 			info.preventDefault();
 			this.jumpkey = true;
 			break;
-		case 37:	// left
+		case this.lKey:	// left
 			info.preventDefault();
 			this.leftkey = true;
 			break;
-		case 39:	// right
+		case this.rKey:	// right
 			info.preventDefault();
 			this.rightkey = true;
 			break;
@@ -213,11 +236,11 @@ cr.behaviors.PlatformPlus = function(runtime) {
 			this.jumped = false;
 			
 			break;
-		case 37:	// left
+		case this.lKey:	// left
 			info.preventDefault();
 			this.leftkey = false;
 			break;
-		case 39:	// right
+		case this.rKey:	// right
 			info.preventDefault();
 			this.rightkey = false;
 			break;
@@ -291,10 +314,21 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		}
 	};
 
+	/* TICK --------------------------------------------------------------- */
 	behinstProto.tick = function () {
 		var dt = this.runtime.getDt(this.inst);
 		var mx, my, obstacle, mag, allover, i, len, j, oldx, oldy;
-		
+		//console.log("tick: " + this.inst.runtime.tickcount);
+		//console.log("lastTickCount" + this.lastTickCount);
+
+		/* Reset potential acceleration after some ticks had passed after wall jumped */
+		if (this.lastTickCount != 0)
+			if ((this.inst.runtime.tickcount - this.lastTickCount) > 10) {
+				this.potencialAcc = 0;
+				this.lastTickCount = 0;
+				//console.log("Reset");
+			}
+	
 		// The "jumped" flag needs resetting whenever the jump key is not simulated for custom controls
 		// This musn't conflict with default controls so make sure neither the jump key nor simulate jump is on
 		if (!this.jumpkey && !this.simjump) {
@@ -406,17 +440,18 @@ cr.behaviors.PlatformPlus = function(runtime) {
 			}
 			
 			/* JUMP -------------------------------------------------------------- */
-			if (jump) {		
+			if (jump) {	
+		
 				// Check we can move up 1px else assume jump is blocked.
 				oldx = this.inst.x;
 				oldy = this.inst.y;
 				this.inst.x -= this.downx;
 				this.inst.y -= this.downy;
 				this.inst.set_bbox_changed();
-		
+				//console.log("overlaping1: " + !this.runtime.testOverlapSolid(this.inst));
 				if (!this.runtime.testOverlapSolid(this.inst)) {
 					this.dy = -this.jumpStrength;
-					
+					//console.log("a");
 					// Trigger On Jump
 					this.runtime.trigger(cr.behaviors.PlatformPlus.prototype.cnds.OnJump, this.inst);
 					this.animMode = ANIMMODE_JUMPING;
@@ -452,8 +487,8 @@ cr.behaviors.PlatformPlus = function(runtime) {
 				this.jumped = true;
 				
 			/* Double JUMP -------------------------------------------------------------- */
-			if (jump && this.enableDoubleJump && !this.doubleJumped) {	
-				
+			if (jump && this.enableDoubleJump && !this.doubleJumped && !this.isStickWall) {	
+
 				// Check we can move up 1px else assume jump is blocked.
 				oldx = this.inst.x;
 				oldy = this.inst.y;
@@ -461,6 +496,9 @@ cr.behaviors.PlatformPlus = function(runtime) {
 				this.inst.y -= this.downy;
 				this.inst.set_bbox_changed();
 		
+				var obstacleSide = this.runtime.testOverlapSolid(this.inst);
+				//console.log("overlapping Side: " + obstacleSide);
+				//console.log("overlaping double jump: " + !this.runtime.testOverlapSolid(this.inst));
 				if (!this.runtime.testOverlapSolid(this.inst)) {
 					this.dy = -this.jumpStrength;
 					
@@ -515,21 +553,19 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		}
 		
 		// Apply acceleration
-		if (left && !right)
-		{
+		if (left && !right) {
 			// Moving in opposite direction to current motion: add deceleration
 			if (this.dx > 0)
-				this.dx -= (this.acc + this.dec) * dt;
+				this.dx -= (this.acc + this.dec) * dt - this.potencialAcc;
 			else
-				this.dx -= this.acc * dt;
+				this.dx -= this.acc * dt - this.potencialAcc;
 		}
 		
-		if (right && !left)
-		{
+		if (right && !left) {
 			if (this.dx < 0)
-				this.dx += (this.acc + this.dec) * dt;
+				this.dx += (this.acc + this.dec) * dt - this.potencialAcc;
 			else
-				this.dx += this.acc * dt;
+				this.dx += this.acc * dt - this.potencialAcc;
 		}
 		
 		// Cap to max speed
@@ -538,8 +574,7 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		else if (this.dx < -this.maxspeed)
 			this.dx = -this.maxspeed;
 		
-		if (this.dx !== 0)
-		{		
+		if (this.dx !== 0) {		
 			// Attempt X movement
 			oldx = this.inst.x;
 			oldy = this.inst.y;
@@ -586,15 +621,13 @@ cr.behaviors.PlatformPlus = function(runtime) {
 			
 			// Test for overlap to side.
 			obstacle = this.runtime.testOverlapSolid(this.inst);
-
-			if (!obstacle && floor_)
-			{
+			//console.log(obstacle);
+			if (!obstacle && floor_){
 				obstacle = this.runtime.testOverlapJumpThru(this.inst);
 				
 				// Check not also overlapping jumpthru from original position, in which
 				// case ignore it as a bit of background.
-				if (obstacle)
-				{
+				if (obstacle) {
 					this.inst.x = oldx;
 					this.inst.y = oldy;
 					this.inst.set_bbox_changed();
@@ -613,18 +646,65 @@ cr.behaviors.PlatformPlus = function(runtime) {
 				}
 			}
 			
-			if (obstacle)
-			{
+			// Stick to wall
+			if (obstacle && !floor_ && (this.dy > 0) && this.enableWallJump) {
+				this.isStickWall = true;
+				//console.log("Is against wall");
+				this.dy = this.dy/2;
+				
+				/* WALL JUMP -------------------------------------------------------------- */
+					if (jump) {	
+						//console.log("wallJump");
+						// Check we can move up 1px else assume jump is blocked.
+						oldx = this.inst.x;
+						oldy = this.inst.y;
+						this.inst.x -= this.downx;
+						this.inst.y -= this.downy;
+						this.inst.set_bbox_changed();
+						//console.log("wall jump overlaping: " + !this.runtime.testOverlapSolid(this.inst));
+						if (this.runtime.testOverlapSolid(this.inst)) {
+							//console.log("ok =)");
+							//this.ignoreInput = true;
+							this.dy = -this.jumpStrength;
+							this.potencialAcc = 100;
+							this.lastTickCount = this.inst.runtime.tickcount;
+							//console.log(this.dx);
+							
+							// Trigger On Jump
+							this.runtime.trigger(cr.behaviors.PlatformPlus.prototype.cnds.OnJump, this.inst);
+							this.animMode = ANIMMODE_JUMPING;
+							
+							// Prevent bunnyhopping: dont allow another jump until key up
+							//this.doubleJumped = true;
+							
+							// Check if jump control is enabled
+							if (this.jumpControl == 1) {
+								this.isJumping = true;
+							}
+							
+						} else {
+							jump = false;
+						}
+							
+						this.inst.x = oldx;
+						this.inst.y = oldy;
+						this.inst.set_bbox_changed();	
+					}
+			} else {this.isStickWall = false;}
+			
+			if (obstacle) {
+				//console.log("Obstacle: " + obstacle);
 				// First try pushing out up the same distance that was moved horizontally.
 				// If this works it's an acceptable slope.
 				var push_dist = Math.abs(this.dx * dt) + 2;
 				
-				if (slope_too_steep || !this.runtime.pushOutSolid(this.inst, -this.downx, -this.downy, push_dist, is_jumpthru, obstacle))
-				{
+				if (slope_too_steep || !this.runtime.pushOutSolid(this.inst, -this.downx, -this.downy, push_dist, is_jumpthru, obstacle)) {
 					// Failed to push up out of slope.  Must be a wall - push back horizontally.
 					// Push either 2.5x the horizontal distance moved this tick, or at least 30px.
 					this.runtime.registerCollision(this.inst, obstacle);
 					push_dist = Math.max(Math.abs(this.dx * dt * 2.5), 30);
+					
+					
 					
 					// Push out of solid: push left if moving right, or push right if moving left
 					if (!this.runtime.pushOutSolid(this.inst, this.rightx * (this.dx < 0 ? 1 : -1), this.righty * (this.dx < 0 ? 1 : -1), push_dist, false))

@@ -3,10 +3,10 @@
 	return {
 		"name":			"PlatformPlus",
 		"id":			"PlatformPlus",
-		"version":		"1.2",
+		"version":		"1.3",
 		"description":	"Enhanced version of Scirra´s Platform behavior.",
 		"author":		"Jorge Popoca",
-		"help url":		"http://www.scirra.com/manual/100/platform",
+		"help url":		"http://www.scirra.com/forum/topic65488.html",
 		"category":		"Movements",
 		"flags":		0
 	};
@@ -114,7 +114,8 @@ var property_list = [
 	new cr.Property(ept_float, "Max fall speed", 1000, "Maximum speed object can reach in freefall, in pixels per second."),
 	new cr.Property(ept_combo, "Default controls", "Yes", "If enabled, arrow keys control movement.  Otherwise, use the 'simulate control' action.", "No|Yes"),
 	new cr.Property(ept_combo, "Jump control", "Yes", "Enable holding jump button to control the jump height", "No|Yes"),
-	new cr.Property(ept_combo, "Double jump", "Yes", "Enable double jump or jump in mid air", "No|Yes")
+	new cr.Property(ept_combo, "Double jump", "Yes", "Enable double jump or jump in mid air", "No|Yes"),
+	new cr.Property(ept_combo, "Wall jump", "Yes", "Enable wall jump", "No|Yes")
 	];
 	
 // Called by IDE when a new behavior type is to be created
