@@ -134,13 +134,22 @@ cr.behaviors.Emitter = function(runtime) {
 				if (this.spawnTimeCount >= this.spawnOfSpawn) {
 					this.spawnTimeCount = 0;
 				}
+				
+				if (!this.spawnObject) {
+					return;
+				}
+				
 				// Spawn object at random position in the range around the center 
 				var inst = this.runtime.createInstance(
 					this.spawnObject, 
 					this.inst.layer, this.inst.x + Math.floor((Math.random() * this.range) + 1) * (Math.random() < 0.5 ? -1 : 1),
 					this.inst.y + Math.floor((Math.random() * this.range) + 1) * (Math.random() < 0.5 ? -1 : 1)
 				);
+				if (!inst) {
+					return;
+				}
 				this.runtime.trigger(cr.behaviors.Emitter.prototype.cnds.OnSpawn, this.inst);
+				this.runtime.trigger(Object.getPrototypeOf(this.spawnObject.plugin).cnds.OnCreated, inst);
 			}
 
 			this.firstTickWithTarget = false;
