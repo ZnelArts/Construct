@@ -3,7 +3,7 @@
 	return {
 		"name":			"PlatformPlus",
 		"id":			"PlatformPlus",
-		"version":		"1.3",
+		"version":		"1.5",
 		"description":	"Enhanced version of Scirra´s Platform behavior.",
 		"author":		"Jorge Popoca",
 		"help url":		"http://www.scirra.com/forum/topic65488.html",
@@ -88,6 +88,11 @@ AddComboParamOption("Disabled");
 AddComboParamOption("Enabled");
 AddComboParam("set Double jump", "Set whether to enable or disable double jump");
 AddAction(13, 0, "Set double jump", "", "Set {my} Double Jump <b>{0}</b>", "Set whether double jump is enabled.", "SetDoubleJump");
+
+AddComboParamOption("Disabled");
+AddComboParamOption("Enabled");
+AddComboParam("set Wall jump", "Set whether to enable or disable Wall jump");
+AddAction(14, 0, "Set Wall Jump", "", "Set {my} Wall Jump <b>{0}</b>", "Set whether Wall jump is enabled.", "SetWallJump");
 
 //////////////////////////////////////////////////////////////
 // Expressions

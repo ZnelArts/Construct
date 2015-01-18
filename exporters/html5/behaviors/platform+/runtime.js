@@ -7,6 +7,9 @@ Im implementing some of the functionality I need on a plataform object.
 Since I like better to code than using C2 to generate events Im modifiying this file
 so it behaves as I need.
 
+Changes in version 1.5
+-Added functionality to enable or disable wall jump
+
 Changes in version 1.4
 -Added latest scirra functionality up to Release 19
 
@@ -33,7 +36,7 @@ To do
 If you think you can help me pls do it and send me an email or post on the forum thread in Scirra´s site
 
 Extended by: Jorge Popoca, hazneliel@gmail.com
-version 1.4
+version 1.3
 05.04.2013
 */
 
@@ -1320,6 +1323,11 @@ cr.behaviors.PlatformPlus = function(runtime) {
 	Acts.prototype.SetDoubleJump = function (en)
 	{
 		this.enableDoubleJump = (en === 1);
+	};
+	
+	Acts.prototype.SetWallJump = function (en)
+	{
+		this.enableWallJump = (en === 1);
 	};
 	
 	Acts.prototype.FallThrough = function ()
