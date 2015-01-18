@@ -7,6 +7,9 @@ Im implementing some of the functionality I need on a plataform object.
 Since I like better to code than using C2 to generate events Im modifiying this file
 so it behaves as I need.
 
+Changes in version 1.4
+-Added latest scirra functionality up to Release 19
+
 Changes in version 1.3
 -Added wall jump functionality
 -Added wall jump parameter for configuration in Construct
@@ -30,7 +33,7 @@ To do
 If you think you can help me pls do it and send me an email or post on the forum thread in Scirra´s site
 
 Extended by: Jorge Popoca, hazneliel@gmail.com
-version 1.3
+version 1.4
 05.04.2013
 */
 
@@ -77,6 +80,8 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		this.inst = inst;				// associated object instance to modify
 		this.runtime = type.runtime;
 		
+		this.layerFiltering = false;
+		
 		// Key states
 		this.leftkey = false;
 		this.rightkey = false;
@@ -93,8 +98,10 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		
 		// Last floor object for moving platform
 		this.lastFloorObject = null;
+		this.loadFloorObject = -1;
 		this.lastFloorX = 0;
 		this.lastFloorY = 0;
+		this.floorIsJumpthru = false;
 		
 		this.animMode = ANIMMODE_STOPPED;
 		
@@ -165,38 +172,109 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		this.enableWallJump = (this.properties[9] === 1);	// 0=no, 1=yes
 		this.wasOnFloor = false;
 		this.wasOverJumpthru = this.runtime.testOverlapJumpThru(this.inst);
+		this.loadOverJumpthru = -1;
 
 		// Angle of gravity
 		this.ga = cr.to_radians(90);
 		this.updateGravity();
 		
-		// Only bind keyboard events via jQuery if default controls are in use
-		if (this.defaultControls && !this.runtime.isDomFree) {
-			jQuery(document).keydown(
-				(function (self) {
-					return function(info) {
-						self.onKeyDown(info);
-					};
-				})(this)
-			);
-			
-			jQuery(document).keyup(
-				(function (self) {
-					return function(info) {
-						self.onKeyUp(info);
-					};
-				})(this)
-			);
-		}
-		
 		var self = this;
 		
+		// Only bind keyboard events via jQuery if default controls are in use
+		if (this.defaultControls && !this.runtime.isDomFree) {
+			jQuery(document).keydown(function(info) {
+						self.onKeyDown(info);
+				});
+			
+			jQuery(document).keyup(function(info) {
+						self.onKeyUp(info);
+				});
+		}
+		
 		// Need to know if floor object gets destroyed
-		this.myDestroyCallback = function(inst) {
+		if (!this.recycled) {
+			this.myDestroyCallback = function(inst) {
 									self.onInstanceDestroyed(inst);
 								};
-										
+		}								
 		this.runtime.addDestroyCallback(this.myDestroyCallback);
+		
+		this.inst.extra["isPlatformBehavior"] = true;
+	};
+	
+		behinstProto.saveToJSON = function () {
+		return {
+			"ii": this.ignoreInput,
+			"lfx": this.lastFloorX,
+			"lfy": this.lastFloorY,
+			"lfo": (this.lastFloorObject ? this.lastFloorObject.uid : -1),
+			"am": this.animMode,
+			"en": this.enabled,
+			"fall": this.fallthrough,
+			"ft": this.firstTick,
+			"dx": this.dx,
+			"dy": this.dy,
+			"ms": this.maxspeed,
+			"acc": this.acc,
+			"dec": this.dec,
+			"js": this.jumpStrength,
+			"g": this.g,
+			"g1": this.g1,
+			"mf": this.maxFall,
+			"wof": this.wasOnFloor,
+			"woj": (this.wasOverJumpthru ? this.wasOverJumpthru.uid : -1),
+			"ga": this.ga,
+			"edj": this.enableDoubleJump,
+			"dj": this.doubleJumped
+		};
+	};
+	
+	behinstProto.loadFromJSON = function (o) {
+		this.ignoreInput = o["ii"];
+		this.lastFloorX = o["lfx"];
+		this.lastFloorY = o["lfy"];
+		this.loadFloorObject = o["lfo"];
+		this.animMode = o["am"];
+		this.enabled = o["en"];
+		this.fallthrough = o["fall"];
+		this.firstTick = o["ft"];
+		this.dx = o["dx"];
+		this.dy = o["dy"];
+		this.maxspeed = o["ms"];
+		this.acc = o["acc"];
+		this.dec = o["dec"];
+		this.jumpStrength = o["js"];
+		this.g = o["g"];
+		this.g1 = o["g1"];
+		this.maxFall = o["mf"];
+		this.wasOnFloor = o["wof"];
+		this.loadOverJumpthru = o["woj"];
+		this.ga = o["ga"];
+		this.enableDoubleJump = o["edj"];
+		this.doubleJumped = o["dj"];
+		
+		this.leftkey = false;
+		this.rightkey = false;
+		this.jumpkey = false;
+		this.jumped = false;
+		this.simleft = false;
+		this.simright = false;
+		this.simjump = false;
+		this.lKey = 37;
+		this.rKey = 39;
+		this.updateGravity();
+	};
+	
+	behinstProto.afterLoad = function () {
+		if (this.loadFloorObject === -1)
+			this.lastFloorObject = null;
+		else
+			this.lastFloorObject = this.runtime.getObjectByUID(this.loadFloorObject);
+			
+		if (this.loadOverJumpthru === -1)
+			this.wasOverJumpthru = null;
+		else
+			this.wasOverJumpthru = this.runtime.getObjectByUID(this.loadOverJumpthru);
 	};
 	
 	behinstProto.onInstanceDestroyed = function (inst) {
@@ -306,21 +384,26 @@ cr.behaviors.PlatformPlus = function(runtime) {
 				
 				// All jumpthrus it is only overlapping one pixel down are floor pieces/tiles.
 				// Return first in list.
-				if (j >= 1)
+				if (j >= 1) {
+					this.floorIsJumpthru = true;
 					return ret2[0];
+				}
 			}
 			
 			return null;
 		}
 	};
-
-	/* TICK --------------------------------------------------------------- */
+	
 	behinstProto.tick = function () {
+	};
+
+	/* POST TICK ---------------------------------------------------------- */
+	behinstProto.posttick = function () {
 		var dt = this.runtime.getDt(this.inst);
 		var mx, my, obstacle, mag, allover, i, len, j, oldx, oldy;
 		//console.log("tick: " + this.inst.runtime.tickcount);
 		//console.log("lastTickCount" + this.lastTickCount);
-
+		
 		/* Reset potential acceleration after some ticks had passed after wall jumped */
 		if (this.lastTickCount != 0)
 			if ((this.inst.runtime.tickcount - this.lastTickCount) > 10) {
@@ -338,7 +421,6 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		var left = this.leftkey || this.simleft;
 		var right = this.rightkey || this.simright;
 		var jump = (this.jumpkey || this.simjump) && !this.jumped;
-	
 		this.simleft = false;
 		this.simright = false;
 		this.simjump = false;
@@ -387,10 +469,15 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		var floor_ = this.isOnFloor();
 		
 		// Push out nearest here to prevent moving objects crushing/trapping the player
+		// Skip this when input predicted by the multiplayer object, since it just conflicts horribly and
+		// makes the player wobble all over the place.
 		var collobj = this.runtime.testOverlapSolid(this.inst);
 		if (collobj) {
-			if (this.runtime.pushOutSolidNearest(this.inst, Math.max(this.inst.width, this.inst.height) / 2))
+			if (this.inst.extra["inputPredicted"]) {
+				this.runtime.pushOutSolid(this.inst, -this.downx, -this.downy, 10, false);
+			} else if (this.runtime.pushOutSolidNearest(this.inst, Math.max(this.inst.width, this.inst.height) / 2)) {
 				this.runtime.registerCollision(this.inst, collobj);
+			}
 			// If can't push out, must be stuck, give up
 			else
 				return;
@@ -713,10 +800,47 @@ cr.behaviors.PlatformPlus = function(runtime) {
 						this.inst.x = oldx;
 						this.inst.y = oldy;
 						this.inst.set_bbox_changed();
+					} else if (floor_ && !is_jumpthru && !this.floorIsJumpthru) {
+					
+						// Push out wall horizontally succeeded. The player might be on a slope, in which case they might
+						// now be hovering in the air slightly. So push 1px in to the floor and push out again.
+						oldx = this.inst.x;
+						oldy = this.inst.y;
+						this.inst.x += this.downx;
+						this.inst.y += this.downy;
+						
+						if (this.runtime.testOverlapSolid(this.inst))
+						{
+							if (!this.runtime.pushOutSolid(this.inst, -this.downx, -this.downy, 3, false))
+							{
+								// Failed to push out of solid.  Restore old position.
+								this.inst.x = oldx;
+								this.inst.y = oldy;
+								this.inst.set_bbox_changed();
+							}
+						}
+						else
+						{
+							// Not over a solid. Put it back.
+							this.inst.x = oldx;
+							this.inst.y = oldy;
+							this.inst.set_bbox_changed();
+						}
 					}
 					
 					if (!is_jumpthru)
 						this.dx = 0;	// stop
+				}
+				else if (!slope_too_steep && !jump && (Math.abs(this.dy) < Math.abs(this.jumpStrength / 4)))
+				{
+					// Must have pushed up out of slope.  Set dy to 0 to handle rare edge case when
+					// jumping on to a platform from the side triggers slope detection upon landing.
+					this.dy = 0;
+					
+					// On this rare occasion, if the player was not on the floor, they may have landed without
+					// ever having been falling.  This will mean 'On landed' doesn't trigger, so trigger it now.
+					if (!floor_)
+						landed = true;
 				}
 			}
 			else
@@ -881,6 +1005,47 @@ cr.behaviors.PlatformPlus = function(runtime) {
 			
 		this.wasOverJumpthru = this.runtime.testOverlapJumpThru(this.inst);
 	};
+	
+	/**BEGIN-PREVIEWONLY**/
+	var animmodes = ["stopped", "moving", "jumping", "falling"];
+	behinstProto.getDebuggerValues = function (propsections)
+	{
+		propsections.push({
+			"title": this.type.name,
+			"properties": [
+				{"name": "Vector X", "value": this.dx},
+				{"name": "Vector Y", "value": this.dy},
+				{"name": "Max speed", "value": this.maxspeed},
+				{"name": "Acceleration", "value": this.acc},
+				{"name": "Deceleration", "value": this.dec},
+				{"name": "Jump strength", "value": this.jumpStrength},
+				{"name": "Gravity", "value": this.g},
+				{"name": "Gravity angle", "value": cr.to_degrees(this.ga)},
+				{"name": "Max fall speed", "value": this.maxFall},
+				{"name": "Animation mode", "value": animmodes[this.animMode], "readonly": true},
+				{"name": "Enabled", "value": this.enabled}
+			]
+		});
+	};
+	
+	behinstProto.onDebugValueEdited = function (header, name, value)
+	{
+		switch (name) {
+		case "Vector X":					this.dx = value;					break;
+		case "Vector Y":					this.dy = value;					break;
+		case "Max speed":					this.maxspeed = value;				break;
+		case "Acceleration":				this.acc = value;					break;
+		case "Deceleration":				this.dec = value;					break;
+		case "Jump strength":				this.jumpStrength = value;			break;
+		case "Gravity":						this.g = value;						break;
+		case "Gravity angle":				this.ga = cr.to_radians(value);		break;
+		case "Max fall speed":				this.maxFall = value;				break;
+		case "Enabled":						this.enabled = value;				break;
+		}
+		
+		this.updateGravity();
+	};
+	/**END-PREVIEWONLY**/
 
 	//////////////////////////////////////
 	// Conditions
@@ -1142,7 +1307,14 @@ cr.behaviors.PlatformPlus = function(runtime) {
 	
 	Acts.prototype.SetEnabled = function (en)
 	{
-		this.enabled = (en === 1);
+		if (this.enabled !== (en === 1))
+		{
+			this.enabled = (en === 1);
+			
+			// when disabling, drop the last floor object, otherwise resets to the moving platform when enabled again
+			if (!this.enabled)
+				this.lastFloorObject = null;
+		}
 	};
 	
 	Acts.prototype.SetDoubleJump = function (en)
@@ -1206,6 +1378,11 @@ cr.behaviors.PlatformPlus = function(runtime) {
 	Exps.prototype.Gravity = function (ret)
 	{
 		ret.set_float(this.g);
+	};
+	
+	Exps.prototype.GravityAngle = function (ret)
+	{
+		ret.set_float(cr.to_degrees(this.ga));
 	};
 	
 	Exps.prototype.MaxFallSpeed = function (ret)
