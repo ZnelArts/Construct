@@ -11,12 +11,17 @@
 *
 * If you think you can help me pls do it and send me an email or post on the forum thread in Scirra´s site
 * Extended by: Jorge Popoca, hazneliel@gmail.com
-* version 1.0
+* version 1.1
 * 01.01.2015
 *
+* Changes in version 1.1
+* -Added repeat count functionality
 * TODO
 * - Have separate range for X and for Y
 * - Have a center offset (maybe you want to spawn in a donut shape)
+*
+* credits to https://www.scirra.com/users/somebody for the icon image
+*
 */
 
 "use strict";
@@ -62,9 +67,10 @@ cr.behaviors.Emitter = function(runtime) {
 		this.rateOfSpawn = this.properties[0];
 		this.range = this.properties[1];
 		this.enabled = (this.properties[2] !== 0);
-		this.spawnObject = this.properties[3];
+		this.repeatCount = this.properties[3];
 		this.spawnTimeCount = this.rateOfSpawn;		// counts up to rate of spawn before spawning. starts in fully reloaded state
 		this.firstTickWithTarget = true;
+		this.spawnCount = 0; // Count the number of times the spawn has been triggered
 		
 		var self = this;
 		
@@ -85,7 +91,8 @@ cr.behaviors.Emitter = function(runtime) {
 			"obj": this.spawnObject,
 			"en": this.enabled,
 			"lct": this.lastCheckTime,
-			"stc": this.spawnTimeCount
+			"stc": this.spawnTimeCount,
+			"rc": this.repeatCount
 		};
 
 		return o;
@@ -98,6 +105,7 @@ cr.behaviors.Emitter = function(runtime) {
 		this.enabled = o["en"];
 		this.lastCheckTime = o["lct"];
 		this.spawnTimeCount = o["stc"] || 0;
+		this.repeatCount = o["rc"];
 	};
 	
 	behinstProto.afterLoad = function () {
@@ -124,7 +132,6 @@ cr.behaviors.Emitter = function(runtime) {
 		
 		// Increment spawn time counter
 		this.spawnTimeCount += dt;
-		
 		// Shoot at the rate of spawn if within 1 degree of target
 		if (this.spawnTimeCount >= this.rateOfSpawn) {
 				this.spawnTimeCount -= this.rateOfSpawn;
@@ -150,6 +157,12 @@ cr.behaviors.Emitter = function(runtime) {
 				}
 				this.runtime.trigger(cr.behaviors.Emitter.prototype.cnds.OnSpawn, this.inst);
 				this.runtime.trigger(Object.getPrototypeOf(this.spawnObject.plugin).cnds.OnCreated, inst);
+				this.spawnCount++;
+
+				if (this.spawnCount == this.repeatCount) {
+					this.enabled = false;
+					this.runtime.trigger(cr.behaviors.Emitter.prototype.cnds.OnFinished, this.inst);
+				}
 			}
 
 			this.firstTickWithTarget = false;
@@ -166,7 +179,8 @@ cr.behaviors.Emitter = function(runtime) {
 			"properties": [
 				{"name": "Range", "value": this.range},
 				{"name": "Rate of spawn", "value": this.rateOfSpawn},
-				{"name": "Enabled", "value": this.enabled}
+				{"name": "Enabled", "value": this.enabled},
+				{"name": "Duration", "value": this.duration}
 			]
 		});
 	};
@@ -176,6 +190,7 @@ cr.behaviors.Emitter = function(runtime) {
 		case "Range":					this.range = value;					break;
 		case "Rate of spawn":			this.rateOfSpawn = value;			break;
 		case "Enabled":					this.enabled = value;				break;
+		case "Duration":				this.duration = value;				break;
 		}
 	};
 	/**END-PREVIEWONLY**/
@@ -185,6 +200,10 @@ cr.behaviors.Emitter = function(runtime) {
 	function Cnds() {};
 	
 	Cnds.prototype.OnSpawn = function () {
+		return true;
+	};
+	
+	Cnds.prototype.OnFinished = function () {
 		return true;
 	};
 	
@@ -200,6 +219,10 @@ cr.behaviors.Emitter = function(runtime) {
 	
 	Acts.prototype.SetRange = function (r) {
 		this.range = r;
+	};
+	
+	Acts.prototype.SetDuration = function (r) {
+		this.duration = r;
 	};
 	
 	Acts.prototype.SetRateOfSpawn = function (r) {
@@ -225,6 +248,10 @@ cr.behaviors.Emitter = function(runtime) {
 	
 	Exps.prototype.RateOfSpawn = function (ret) {
 		ret.set_float(this.rateOfSpawn);
+	};
+	
+	Exps.prototype.Duration = function (ret) {
+		ret.set_float(this.duration);
 	};
 	
 	behaviorProto.exps = new Exps();

@@ -3,7 +3,7 @@
 	return {
 		"name":			"Emitter",			// as appears in 'add behavior' dialog, can be changed as long as "id" stays the same
 		"id":			"Emitter",			// this is used to identify this behavior and is saved to the project; never change it
-		"version":		"1.0",				// (float in x.y format) Behavior version - C2 shows compatibility warnings based on this
+		"version":		"1.1",				// (float in x.y format) Behavior version - C2 shows compatibility warnings based on this
 		"description":	"Triggers to spawn objects at random position",
 		"author":		"Hazneliel",
 		"help url":		"http://www.znelarts.com",
@@ -42,8 +42,7 @@
 //AddCondition(0, cf_none, "Has target", "", "{my} has target", "True if the turret currently has a target to aim at.", "HasTarget");
 
 AddCondition(1, cf_trigger, "On Spawn", "", "On {my} spawn", "Triggered when the turret can shoot at its target.", "OnSpawn");
-
-//AddCondition(2, cf_trigger, "On target acquired", "", "On {my} target acquired", "Triggered upon the turret finding a new target within range.", "OnTargetAcquired");
+AddCondition(2, cf_trigger, "On Finished", "", "On {my} finished", "Triggered when the emitter has reached repeat count.", "OnFinished");
 
 ////////////////////////////////////////
 // Actions
@@ -69,6 +68,9 @@ AddAction(3, af_none, "Set range", "Settings", "Set {my} range to spawn <i>{0}</
 
 AddObjectParam("Object", "Object to spawn");
 AddAction(2, af_none, "Set Object", "", "{my} acquire target {0}", "Target a specific object if in range.", "SetObject");
+
+AddNumberParam("Repeat Count", "");
+AddAction(4, af_none, "Set repeat count", "Settings", "Set {my} repeat count of the emitter <i>{0}</i>", "Set how many times will the emitter spawn", "SetRepeatCount");
 
 ////////////////////////////////////////
 // Expressions
@@ -96,7 +98,8 @@ ACESDone();
 var property_list = [
 	new cr.Property(ept_float, 	"Rate of spawn",	0.5, "The time to shoot in seconds."),
 	new cr.Property(ept_float, 	"Range", 1, "The range to spawn objects from the center."),
-	new cr.Property(ept_combo, "Initial state", "Enabled", "Whether to initially have the behavior enabled or disabled.", "Disabled|Enabled")
+	new cr.Property(ept_combo, "Initial state", "Enabled", "Whether to initially have the behavior enabled or disabled.", "Disabled|Enabled"),
+	new cr.Property(ept_integer, 	"Repeat count", 0, "The number of times the emitter will spawn (0 = infinite).")
 	];
 	
 // Called by IDE when a new behavior type is to be created
