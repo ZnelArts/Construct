@@ -19,13 +19,9 @@ AddCondition(0, 0, "Is moving", "", "{my} is moving", "True when the object is m
 AddCmpParam("Comparison", "Choose the way to compare the current speed.");
 AddNumberParam("Speed", "The speed, in pixels per second, to compare the current speed to.");
 AddCondition(1, 0, "Compare speed", "", "{my} speed {0} {1}", "Compare the current speed of the object.", "CompareSpeed");
-
 AddCondition(2, 0, "Is on floor", "", "{my} is on floor", "True when the object is on top of a solid or platform.", "IsOnFloor");
-
 AddCondition(3, 0, "Is jumping", "", "{my} is jumping", "True when the object is moving upwards (i.e. jumping).", "IsJumping");
-
 AddCondition(4, 0, "Is falling", "", "{my} is falling", "True when the object is moving downwards (i.e. falling).", "IsFalling");
-
 AddCondition(5, cf_trigger, "On jump", "Animation triggers", "{my} On jump", "Triggered when jumping.", "OnJump");
 AddCondition(6, cf_trigger, "On fall", "Animation triggers", "{my} On fall", "Triggered when falling.", "OnFall");
 AddCondition(7, cf_trigger, "On stopped", "Animation triggers", "{my} On stopped", "Triggered when stopped moving.", "OnStop");
@@ -36,6 +32,8 @@ AddComboParamOption("left");
 AddComboParamOption("right");
 AddComboParam("Side", "Select the side to test for a wall.");
 AddCondition(10, 0, "Is by wall", "", "{my} has wall to {0}", "Test if the object has a wall to the left or right.", "IsByWall");
+AddCondition(11, 0, "Is stomping", "", "{my} is stomping", "True when the object is stomping (i.e. stomping).", "IsStomping");
+AddCondition(12, cf_trigger, "On stomp", "Animation triggers", "{my} On stomp", "Triggered when start stomping.", "OnStomp");
 
 //////////////////////////////////////////////////////////////
 // Actions
@@ -94,6 +92,14 @@ AddComboParamOption("Enabled");
 AddComboParam("set Wall jump", "Set whether to enable or disable Wall jump");
 AddAction(14, 0, "Set Wall Jump", "", "Set {my} Wall Jump <b>{0}</b>", "Set whether Wall jump is enabled.", "SetWallJump");
 
+AddComboParamOption("Disabled");
+AddComboParamOption("Enabled");
+AddComboParam("set Stomp", "Set whether to enable or disable stomp");
+AddAction(15, 0, "Set stomp", "", "Set {my} Stomp <b>{0}</b>", "Set whether stomp is enabled.", "SetStomp");
+
+AddNumberParam("Stomp strength", "The speed at which the player will stomp down, in pixels per second.");
+AddAction(16, 0, "Set stomp strength", "", "Set {my} stomp strength to <i>{0}</i>", "Set the object's stomp strength.", "SetStompStrength");
+
 //////////////////////////////////////////////////////////////
 // Expressions
 AddExpression(0, ef_return_number, "Get speed", "", "Speed", "The current object speed, in pixels per second.");
@@ -106,6 +112,7 @@ AddExpression(6, ef_return_number, "Get max fall speed", "", "MaxFallSpeed", "Th
 AddExpression(7, ef_return_number, "Get angle of motion", "", "MovingAngle", "The current angle of motion, in degrees.");
 AddExpression(8, ef_return_number, "Get vector X", "", "VectorX", "The current X component of motion, in pixels.");
 AddExpression(9, ef_return_number, "Get vector Y", "", "VectorY", "The current Y component of motion, in pixels.");
+AddExpression(10, ef_return_number, "Get stomp strength", "", "StompStrength", "The stomp strength setting, in pixels per second.");
 
 ACESDone();
 
@@ -120,7 +127,9 @@ var property_list = [
 	new cr.Property(ept_combo, "Default controls", "Yes", "If enabled, arrow keys control movement.  Otherwise, use the 'simulate control' action.", "No|Yes"),
 	new cr.Property(ept_combo, "Jump control", "Yes", "Enable holding jump button to control the jump height", "No|Yes"),
 	new cr.Property(ept_combo, "Double jump", "Yes", "Enable double jump or jump in mid air", "No|Yes"),
-	new cr.Property(ept_combo, "Wall jump", "Yes", "Enable wall jump", "No|Yes")
+	new cr.Property(ept_combo, "Wall jump", "Yes", "Enable wall jump", "No|Yes"),
+	new cr.Property(ept_combo, "Can Stomp", "Yes", "Enable pressing jump button to stomp down", "No|Yes"),
+	new cr.Property(ept_float, "Stomp strength", 650, "Speed at which stomp start, in pixels per second.")
 	];
 	
 // Called by IDE when a new behavior type is to be created

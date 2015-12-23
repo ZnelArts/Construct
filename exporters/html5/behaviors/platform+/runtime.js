@@ -7,6 +7,9 @@ Im implementing some of the functionality I need on a plataform object.
 Since I like better to code than using C2 to generate events Im modifiying this file
 so it behaves as I need.
 
+Changes in version 1.6
+-Added functionality to Stomp
+
 Changes in version 1.5
 -Added functionality to enable or disable wall jump
 
@@ -36,7 +39,7 @@ To do
 If you think you can help me pls do it and send me an email or post on the forum thread in Scirra´s site
 
 Extended by: Jorge Popoca, hazneliel@gmail.com
-version 1.3
+version 1.6
 05.04.2013
 */
 
@@ -76,6 +79,7 @@ cr.behaviors.PlatformPlus = function(runtime) {
 	var ANIMMODE_MOVING = 1;
 	var ANIMMODE_JUMPING = 2;
 	var ANIMMODE_FALLING = 3;
+	var ANIMMODE_STOMPING = 4;
 	
 	behaviorProto.Instance = function(type, inst) {
 		this.type = type;
@@ -93,6 +97,7 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		this.ignoreInput = false;
 		this.isJumping = false;			// Helper for Jump control
 		this.doubleJumped = false;
+		this.stomped = false;
 		
 		// Simulated controls
 		this.simleft = false;
@@ -173,6 +178,8 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		this.jumpControl = (this.properties[7] === 1);	// 0=no, 1=yes
 		this.enableDoubleJump = (this.properties[8] === 1);	// 0=no, 1=yes
 		this.enableWallJump = (this.properties[9] === 1);	// 0=no, 1=yes
+		this.enableStomp = (this.properties[10] === 1);	// 0=no, 1=yes
+		this.stompStrength = this.properties[11];
 		this.wasOnFloor = false;
 		this.wasOverJumpthru = this.runtime.testOverlapJumpThru(this.inst);
 		this.loadOverJumpthru = -1;
@@ -291,7 +298,8 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		this.runtime.removeDestroyCallback(this.myDestroyCallback);
 	};
 
-	behinstProto.onKeyDown = function (info) {	
+	behinstProto.onKeyDown = function (info) {
+console.log(info.which);	
 		switch (info.which) {
 		case 38:	// up
 			info.preventDefault();
@@ -490,6 +498,7 @@ cr.behaviors.PlatformPlus = function(runtime) {
 			/* reset jumping vars, it landed */
 			this.isJumping = false;
 			this.doubleJumped = false;
+			this.stomped = false;
 			
 			if (this.dy > 0) {
 				// By chance we may have fallen perfectly to 1 pixel above the floor, which might make
@@ -575,10 +584,10 @@ cr.behaviors.PlatformPlus = function(runtime) {
 			// Still set the jumped flag to prevent double tap bunnyhop
 			if (jump)
 				this.jumped = true;
-				
+			
 			/* Double JUMP -------------------------------------------------------------- */
 			if (jump && this.enableDoubleJump && !this.doubleJumped && !this.isStickWall) {	
-
+				console.log("d jump");
 				// Check we can move up 1px else assume jump is blocked.
 				oldx = this.inst.x;
 				oldy = this.inst.y;
@@ -611,6 +620,15 @@ cr.behaviors.PlatformPlus = function(runtime) {
 				this.inst.x = oldx;
 				this.inst.y = oldy;
 				this.inst.set_bbox_changed();	
+			}/* STOMP -------------------------------------------------------------- */			
+			else if (jump && this.enableStomp && !this.stomped && !this.isStickWall) {	
+				console.log("stomp");
+				this.dy = +this.stompStrength;
+				
+				// Trigger On Stomp
+				this.runtime.trigger(cr.behaviors.PlatformPlus.prototype.cnds.OnStomp, this.inst);
+				this.animMode = ANIMMODE_STOMPING;
+				this.stomped = true;
 			}
 		}
 		
@@ -1169,12 +1187,22 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		return this.dy < 0;
 	};
 	
+	Cnds.prototype.IsStomping = function ()
+	{
+		return this.stomped;
+	};
+	
 	Cnds.prototype.IsFalling = function ()
 	{
 		return this.dy > 0;
 	};
 	
 	Cnds.prototype.OnJump = function ()
+	{
+		return true;
+	};
+	
+	Cnds.prototype.OnStomp = function ()
 	{
 		return true;
 	};
@@ -1240,6 +1268,14 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		
 		if (this.jumpStrength < 0)
 			this.jumpStrength = 0;
+	};
+	
+	Acts.prototype.SetStompStrength = function (stompStr)
+	{
+		this.stompStrength = stompStr;
+		
+		if (this.stompStrength < 0)
+			this.stompStrength = 0;
 	};
 	
 	Acts.prototype.SetGravity = function (grav)
@@ -1325,6 +1361,11 @@ cr.behaviors.PlatformPlus = function(runtime) {
 		this.enableDoubleJump = (en === 1);
 	};
 	
+	Acts.prototype.SetStomp = function (en)
+	{
+		this.enableStomp = (en === 1);
+	};
+	
 	Acts.prototype.SetWallJump = function (en)
 	{
 		this.enableWallJump = (en === 1);
@@ -1381,6 +1422,11 @@ cr.behaviors.PlatformPlus = function(runtime) {
 	Exps.prototype.JumpStrength = function (ret)
 	{
 		ret.set_float(this.jumpStrength);
+	};
+	
+	Exps.prototype.StompStrength = function (ret)
+	{
+		ret.set_float(this.stompStrength);
 	};
 	
 	Exps.prototype.Gravity = function (ret)
